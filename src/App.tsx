@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Properties from './pages/Properties'
 import PropertyDetail from './pages/PropertyDetail'
 import Categories from './pages/Categories'
+import Reports from './pages/Reports'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -46,6 +47,7 @@ function AppRoutes() {
         <Route path="properties" element={<Properties />} />
         <Route path="properties/:id" element={<PropertyDetail />} />
         <Route path="categories" element={<Categories />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

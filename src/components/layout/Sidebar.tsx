@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Building2, LayoutDashboard, Tag, LogOut, X } from 'lucide-react'
+import { Building2, LayoutDashboard, Tag, LogOut, X, FileSpreadsheet } from 'lucide-react'
 import { useAuth } from '../../lib/AuthContext'
 import { signOut } from '../../lib/auth'
 import { useNavigate } from 'react-router-dom'
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/properties', label: 'Properties', icon: Building2, exact: false },
   { to: '/categories', label: 'Categories', icon: Tag, exact: false },
+  { to: '/reports', label: 'Reports', icon: FileSpreadsheet, exact: false },
 ]
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
