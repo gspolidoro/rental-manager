@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Paperclip } from 'lucide-react'
+import { ArrowLeft, Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Paperclip, Copy } from 'lucide-react'
 import {
   getProperty, getTransactions, getCategories,
   createTransaction, updateTransaction, deleteTransaction,
@@ -18,6 +18,7 @@ export default function PropertyDetail() {
   const [categories, setCategories] = useState<Category[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [copying, setCopying] = useState<Transaction | null>(null)
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
   const [viewReceiptPath, setViewReceiptPath] = useState<string | null>(null)
@@ -75,6 +76,17 @@ export default function PropertyDetail() {
 
     setShowForm(false)
     setEditing(null)
+    setCopying(null)
+  }
+
+  async function handleSaveMultiple(payloads: TransactionPayload[]) {
+    const created = await Promise.all(
+      payloads.map(p => createTransaction({ ...p, receipt_url: null }))
+    )
+    // Prepend newest first
+    setTransactions(prev => [...created.reverse(), ...prev])
+    setShowForm(false)
+    setCopying(null)
   }
 
   async function handleDelete(txn: Transaction) {
@@ -86,6 +98,18 @@ export default function PropertyDetail() {
     setTransactions(prev => prev.filter(t => t.id !== txn.id))
   }
 
+  function openCopy(txn: Transaction) {
+    setEditing(null)
+    setShowForm(false)
+    setCopying(txn)
+  }
+
+  function openEdit(txn: Transaction) {
+    setCopying(null)
+    setShowForm(false)
+    setEditing(txn)
+  }
+
   if (loading) return <div className="text-center py-16 text-gray-400">Loading…</div>
   if (!property) return <div className="text-center py-16 text-gray-400">Property not found.</div>
 
@@ -93,6 +117,8 @@ export default function PropertyDetail() {
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
   const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const filtered = filterType === 'all' ? transactions : transactions.filter(t => t.type === filterType)
+
+  const formOpen = showForm || !!editing || !!copying
 
   return (
     <div className="space-y-6">
@@ -137,20 +163,22 @@ export default function PropertyDetail() {
           ))}
         </div>
         <button
-          onClick={() => { setEditing(null); setShowForm(true) }}
+          onClick={() => { setEditing(null); setCopying(null); setShowForm(true) }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Transaction
         </button>
       </div>
 
-      {(showForm || editing) && (
+      {formOpen && (
         <TransactionForm
-          initial={editing ?? undefined}
+          initial={editing ?? copying ?? undefined}
+          isCopy={!!copying}
           categories={categories}
           propertyId={id!}
           onSave={handleSave}
-          onCancel={() => { setShowForm(false); setEditing(null) }}
+          onSaveMultiple={handleSaveMultiple}
+          onCancel={() => { setShowForm(false); setEditing(null); setCopying(null) }}
         />
       )}
 
@@ -209,7 +237,14 @@ export default function PropertyDetail() {
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1 justify-end">
                       <button
-                        onClick={() => { setEditing(t); setShowForm(false) }}
+                        onClick={() => openCopy(t)}
+                        title="Copy transaction"
+                        className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => openEdit(t)}
                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                       >
                         <Pencil className="w-3.5 h-3.5" />
