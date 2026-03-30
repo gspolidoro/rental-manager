@@ -33,6 +33,7 @@ export interface Transaction {
   type: 'income' | 'expense'
   description: string | null
   date: string
+  receipt_url: string | null
   created_at: string
   updated_at: string
   category?: Category

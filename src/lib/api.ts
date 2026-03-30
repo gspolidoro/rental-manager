@@ -126,3 +126,30 @@ export async function deleteTransaction(id: string) {
   const { error } = await supabase.from('transactions').delete().eq('id', id)
   if (error) throw error
 }
+
+// ── Receipt Storage ──────────────────────────────────────────
+export async function uploadReceipt(transactionId: string, file: File): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${user!.id}/${transactionId}.${ext}`
+
+  const { error } = await supabase.storage
+    .from('receipts')
+    .upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw error
+
+  return path
+}
+
+export async function getReceiptUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('receipts')
+    .createSignedUrl(path, 60 * 60) // 1 hour
+  if (error) throw error
+  return data.signedUrl
+}
+
+export async function deleteReceipt(path: string) {
+  const { error } = await supabase.storage.from('receipts').remove([path])
+  if (error) throw error
+}
