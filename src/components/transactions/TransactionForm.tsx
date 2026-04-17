@@ -1,9 +1,10 @@
 import { useForm } from 'react-hook-form'
 import { useRef, useState } from 'react'
-import { ImagePlus, X, Loader2, FileText, RepeatIcon } from 'lucide-react'
+import { ImagePlus, X, Loader2, FileText, RepeatIcon, ScanLine } from 'lucide-react'
 import type { Transaction, Category } from '../../types'
 import { format, addMonths, parseISO } from 'date-fns'
 import { getReceiptUrl } from '../../lib/api'
+import { extractReceiptData } from '../../lib/ocr'
 
 type FormData = {
   type: 'income' | 'expense'
@@ -43,7 +44,7 @@ function buildMonthlyDates(startDate: string, endDate: string): string[] {
 export default function TransactionForm({ initial, isCopy, categories, propertyId, onSave, onSaveMultiple, onCancel }: Props) {
   const isEditing = !!initial && !isCopy
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     defaultValues: initial ? {
       type: initial.type,
       amount: initial.amount,
@@ -68,6 +69,8 @@ export default function TransactionForm({ initial, isCopy, categories, propertyI
   )
   const [removeExisting, setRemoveExisting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [ocrApplied, setOcrApplied] = useState(false)
 
   // Recurring state
   const [recurring, setRecurring] = useState(false)
@@ -82,7 +85,7 @@ export default function TransactionForm({ initial, isCopy, categories, propertyI
     ? buildMonthlyDates(watchDate, repeatUntil)
     : []
 
-  function handleFileChange(file: File | null) {
+  async function handleFileChange(file: File | null) {
     if (!file) return
     if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
       alert('Please select an image (JPEG, PNG, WebP) or PDF file.')
@@ -93,8 +96,26 @@ export default function TransactionForm({ initial, isCopy, categories, propertyI
       return
     }
     setReceiptFile(file)
+    setOcrApplied(false)
     if (file.type.startsWith('image/')) {
       setPreviewUrl(URL.createObjectURL(file))
+      // Run OCR on images only (not editing an existing transaction)
+      if (!isEditing && import.meta.env.VITE_ANTHROPIC_API_KEY) {
+        setScanning(true)
+        try {
+          const extracted = await extractReceiptData(file)
+          if (extracted.date) setValue('date', extracted.date)
+          if (extracted.amount) setValue('amount', extracted.amount)
+          if (extracted.merchant) setValue('description', extracted.merchant)
+          if (extracted.type) setValue('type', extracted.type)
+          const anyFilled = extracted.date || extracted.amount || extracted.merchant
+          if (anyFilled) setOcrApplied(true)
+        } catch {
+          // OCR failed silently — user fills manually
+        } finally {
+          setScanning(false)
+        }
+      }
     } else {
       setPreviewUrl(null)
     }
@@ -310,6 +331,22 @@ export default function TransactionForm({ initial, isCopy, categories, propertyI
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+            )}
+
+            {/* Scanning indicator */}
+            {scanning && (
+              <div className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg mb-2 text-sm text-purple-700">
+                <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                <span>Scanning receipt with AI…</span>
+              </div>
+            )}
+
+            {/* OCR success banner */}
+            {ocrApplied && !scanning && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg mb-2 text-sm text-green-700">
+                <ScanLine className="w-4 h-4 flex-shrink-0" />
+                <span>Fields auto-filled from receipt — please review and adjust if needed.</span>
               </div>
             )}
 
